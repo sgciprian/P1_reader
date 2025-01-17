@@ -31,7 +31,7 @@ electricity_patterns = {
     "timestamp": re.compile(r"0-0:1\.0\.0\((\d{12})"),
     "lifetime_power_t1": re.compile(r"1-0:1\.8\.1\((\d+\.\d{3})"),
     "lifetime_power_t2": re.compile(r"1-0:1\.8\.2\((\d+\.\d{3})"),
-    "current_tariff": re.compile(r"1-0:96\.14\.0\((\d{4})"),
+    "current_tariff": re.compile(r"0-0:96\.14\.0\((\d{4})"),
     "current_power_usage": re.compile(r"1-0:1\.7\.0\((\d+\.\d{3})"),
 }
 
@@ -39,11 +39,14 @@ gas_pattern = re.compile(r"0-1:24\.2\.1\((\d{12})W\)\((\d+\.\d{3})")
 
 def parse_electricity(packet):
     data = {}
+    all_matched = True
     for key, pattern in electricity_patterns.items():
         match = pattern.search(packet)
         if match:
             data[key] = match.group(1)
-    return data
+        else:
+            all_matched = False
+    return data if all_matched else None
 
 def parse_gas(packet):
     match = gas_pattern.search(packet)
