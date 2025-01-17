@@ -36,7 +36,7 @@ Lifetime power usage Tarrif 2 (in kWh)
 1-0:1.8.2(<F9(3,3)>
 
 Current tarrif type (can be 0001 for Tarrif 1 or 0002 for Tarrif 2)
-1-0:96.14.0(<S4>
+0-0:96.14.0(<S4>
 
 Current power usage (in kWh)
 1-0:1.7.0(<F5(3,3)>

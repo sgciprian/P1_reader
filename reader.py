@@ -1,6 +1,7 @@
 import sqlite3
 import serial
 import re
+import time
 
 def setup_database():
     conn = sqlite3.connect("readings.db")
@@ -27,14 +28,14 @@ def setup_database():
     conn.close()
 
 electricity_patterns = {
-    "timestamp": re.compile(r"0-0:1\.0\.0\(<(\d{12})>\)"),
-    "lifetime_power_t1": re.compile(r"1-0:1\.8\.1\(<(\d+\.\d{3})>\)"),
-    "lifetime_power_t2": re.compile(r"1-0:1\.8\.2\(<(\d+\.\d{3})>\)"),
-    "current_tariff": re.compile(r"1-0:96\.14\.0\(<(\d{4})>\)"),
-    "current_power_usage": re.compile(r"1-0:1\.7\.0\(<(\d+\.\d{3})>\)"),
+    "timestamp": re.compile(r"0-0:1\.0\.0\((\d{12})"),
+    "lifetime_power_t1": re.compile(r"1-0:1\.8\.1\((\d+\.\d{3})"),
+    "lifetime_power_t2": re.compile(r"1-0:1\.8\.2\((\d+\.\d{3})"),
+    "current_tariff": re.compile(r"1-0:96\.14\.0\((\d{4})"),
+    "current_power_usage": re.compile(r"1-0:1\.7\.0\((\d+\.\d{3})"),
 }
 
-gas_pattern = re.compile(r"0-1:24\.2\.1\(<(\d{12})>W\)\(<(\d+\.\d{3})>\)")
+gas_pattern = re.compile(r"0-1:24\.2\.1\((\d{12})W\)\((\d+\.\d{3})")
 
 def parse_electricity(packet):
     data = {}
@@ -90,10 +91,13 @@ def insert_gas_readings(data):
             (data["timestamp"], data["lifetime_gas_usage"]),
         )
     except sqlite3.IntegrityError as e:
-        print(f"Duplicate gas reading for timestamp {data['timestamp']}: {e}")
+        pass
 
     conn.commit()
     conn.close()
+
+def reset_serial_connection():
+    return serial.Serial(serial_port, baud_rate, timeout=1)
 
 serial_port = "/dev/ttyUSB0"
 baud_rate = 115200
@@ -101,11 +105,20 @@ baud_rate = 115200
 def main():
     setup_database()
 
-    with serial.Serial(serial_port, baud_rate, timeout=1) as ser:
-        buffer = ""
+    ser = reset_serial_connection()
+    buffer = ""
+    last_read_time = time.time()
 
-        while True:
+    while True:
+        try:
             line = ser.readline().decode("utf-8").strip()
+            current_time = time.time()
+
+            if current_time - last_read_time > 2:
+                ser.close()
+                ser = reset_serial_connection()
+                buffer = ""
+
             if line == "":
                 if "0-0:1.0.0" in buffer:
                     electricity_data = parse_electricity(buffer)
@@ -119,6 +132,12 @@ def main():
                 buffer = ""
             else:
                 buffer += line + "\n"
+                last_read_time = current_time
+
+        except serial.SerialException as e:
+            print(f"Serial error: {e}. Attempting to reset connection.")
+            ser.close()
+            ser = reset_serial_connection()
 
 if __name__ == "__main__":
     main()
